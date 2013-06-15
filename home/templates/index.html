@@ -1,0 +1,66 @@
+<!DOCTYPE HTML>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>{{title}}</title>
+</head>
+<body>
+  <div id="FileUpload">
+    <h2><font color="green">Upload File</font></h2>
+    <form action="/upload/" method="post" enctype="multipart/form-data" accept-charset="utf-8">
+        {% csrf_token %}
+        <input type="file" name="pic" value="" />
+        <button>Submit</button>
+    </form>
+  </div>
+  <div id="FileDownload">
+    <h2><font color="green">Download File</font></h2>
+    <a href="download" class="Button round" target="_blank"><span title = "DownLoad">Down Load</sapn></a>
+    
+
+    <!-- <form action="/download" method="post" enctype="multipart/form-data" accept-charset="utf-8"> -->
+    <!-- <a href="${ url('home.views.download_conf_zipfile')}" class="Button round" target="_blank"><span title = "DownLoad">DownLoad</sapn></a> -->
+    <!-- <\!--     {% csrf_token %} -\-> -->
+    <!-- <\!--     <input type="file" name="pic" value="" /> -\-> -->
+    <!--     <button>Download</button> -->
+    <!-- </form -->>
+    <br/>
+    <table width="80%" border="1">
+        <tr>
+                <th>文件名称</th>
+                <th>上传状态</th>
+                <th>文件下载</th>
+                <th>文件删除</th>
+        </tr>
+        <!-- <tr> -->
+        <!--         <td>2003年</td> -->
+        <!--         <td>1000</td> -->
+        <!--         <td>2000</td> -->
+        <!--         <td>3000</td> -->
+        <!-- </tr> -->
+        <!-- <tr> -->
+        <!--         <td>2004年</td> -->
+        <!--         <td>4000</td> -->
+        <!--         <td>5000</td> -->
+        <!--         <td>6000</td> -->
+        <!-- </tr> -->
+        <!-- <tr> -->
+        <!--         <td>2005年</td> -->
+        <!--         <td>7000</td> -->
+        <!--         <td>8000</td> -->
+        <!--         <td>9000</td> -->
+        <!-- </tr> -->
+    </table>
+</tr>
+                            {% for ct in ctag %}
+                            <tr>
+                            <td style='width:50pt'><a href="http://weibo.com/u/{{ ct.uid }}" target="_blank" class="user-name">{{ ct.uid }}</a></td>
+                            <td style='width:50pt'>{{ ct.tag }}</td>
+                            <td style='width:50pt'>{{ ct.pre_tag }}</td>
+                            <td>{{ ct.status|safe|urlize }}</td>
+                            </tr>
+
+                            {% endfor %}
+  </div>	
+</body>
+</html> 
