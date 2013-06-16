@@ -1,0 +1,556 @@
+* Mon:I DO
+** models,mysql
+*** 对应用的数据库服务器进行抽象，在一处修改即可改变数据库服务器。不用每次都使用不同的数据库适配器（例：psycopg，MySQLdb），连接参数。
+*** MTV开发模式：
+Django 数据驱动 Web 应用的总体设计
+把数据存取逻辑、业务逻辑和表现逻辑组合在一起的概念有时被称为软件架构的 Model-View-Controller (MVC)模式。 在这个模式中， Model 代表数据存取层，View 代表的是系统中选择显示什么和怎么显示的部分，Controller 指的是系统中根据用户输入并视需要访问模型，以决定使用哪个视图的那部分
+
+Django 紧紧地遵循这种 MVC 模式，可以称得上是一种 MVC 框架。 以下是 Django 中 M、V 和 C 各自的含义：
+
+x    M ，数据存取部分，由django数据库层处理，本章要讲述的内容。
+
+    V ，选择显示哪些数据要显示以及怎样显示的部分，由视图和模板处理。
+    
+    C ，根据用户输入委派视图的部分，由 Django 框架根据 URLconf 设置，对给定 URL 调用适当的 Python 函数。
+
+由于 C 由框架自行处理，而 Django 里更关注的是模型（Model）、模板(Template)和视图（Views），Django 也被称为 MTV 框架 。在 MTV 开发模式中：
+
+    M 代表模型（Model），即数据存取层。 该层处理与数据相关的所有事务： 如何存取、如何验证有效性、包含哪些行为以及数据之间的关系等。
+
+    T 代表模板(Template)，即表现层。 该层处理与表现相关的决定： 如何在页面或其他类型文档中进行显示。
+
+    V 代表视图（View），即业务逻辑层。 该层包含存取模型及调取恰当模板的相关逻辑。 你可以把它看作模型与模板之间的桥梁。
+测试数据库连接：
+>>> from django.db import connection
+>>> cursor = connection.cursor()
+*** 模型安装
+模型激活：settings.py----->INSTALLED_APPS 它会根据 INSTALLED_APPS 里设置的app来检查数据库， 如果表不存在，它就会创建它。 需要注意的是， syncdb 并 不能将模型的修改或删除同步到数据库；如果你修改或删除了一个模型，并想把它提交到数据库，syncdb并不会做出任何处理。
+验证模型有效性：python manage.py validate
+生成CREATE TABLE语句：python manage.py sqlall appname
+同步模型到数据库的简单方法：python manage.py syndb. 它会根据 INSTALLED_APPS 里设置的app来检查数据库， 如果表不存在，它就会创建它。 需要注意的是， syncdb 并 不能将模型的修改或删除同步到数据库；如果你修改或删除了一个模型，并想把它提交到数据库，syncdb并不会做出任何处理。
+   用SQL客户端登陆进数据库服务器看Django创建的数据表：python manage.py dbshell
+   objects属性。 它被称为管理器，我们将在第10章中详细讨论它。 目前，我们只需了解管理器管理着所有针对数据包含、还有最重要的数据查询的表格级操作。
+所有的模型都自动拥有一个 objects 管理器；你可以在想要查找数据时使用它。
+
+数据过滤：我们很少会一次性从数据库中取出所有的数据；通常都只针对一部分数据进行操作。 在Django API中，我们可以使用`` filter()`` 方法对数据进行过滤：
+Publisher.objects.filter(country="U.S.A.", state_province="CA")
+获取单个对象：filter():返回一个记录表，是一个列表。get（）得到只是一个对象。
+数据排序：appname.objects.order_by('name');逆序排列：appname.objects.order_by('name');
+指定模型缺省排列方式： **class Meta:**  
+                         **ordering = ['name']**
+
+
+__unicode__():请确保你的每一个模型里都包含 __unicode__() 方法，这不只是为了交互时方便，也是因为 Django会在其他一些地方用 __unicode__() 来显示对象。
+              最后， __unicode__() 也是一个很好的例子来演示我们怎么添加 行为 到模型里。 Django的模型不只是为对象定义了数据库表的结构，还定义了对象的行为。 __unicode__() 就是一个例子来演示模型知道怎么显示它们自己。
+
+**** 例子：
+class Publisher(models.Model):
+    name = models.CharField(max_length=30)
+    address = models.CharField(max_length=50)
+    city = models.CharField(max_length=60)
+    state_province = models.CharField(max_length=30)
+    country = models.CharField(max_length=50)
+    website = models.URLField()
+
+    def __unicode__(self):
+        return self.name
+
+    **class Meta:**
+        **ordering = ['name']**
+*** project和app
+技术上，project的作用是提供配置文件，比方说哪里定义数据库连接信息, 安装的app列表， TEMPLATE_DIRS ，等等。
+一个app是一套Django功能的集合，通常包括模型和视图，按Python的包结构的方式存在。
+例如，Django本身内建有一些app，例如注释系统和自动管理界面。 app的一个关键点是它们是很容易移植到其他project和被多个project复用。
+
+系统对app有一个约定： 如果你使用了Django的数据库层（模型），你 必须创建一个Django app。 模型必须存放在apps中。 因此，为了开始建造 我们的模型，我们必须创建一个新的app。
+GET和POST数据：request.GET
+GET 和POST 是浏览器使用的两个方法，用于发送数据到服务器端。 一般来说，会在html表单里面看到:
+
+<form action="/books/search/" method="get">
+
+它指示浏览器向/books/search/以GET的方法提交数据
+** panel:
+Panel库：线上（监测有人口属性的panel库）
+库内容：网民
+缺点：有cookie的网民
+用法：MAC库修正相关人口百分比，MAC库由2010人口普查数据修正。
+问题：人口属性怎么来？iufang7115@126.com
+** Survey Master:线上问卷调研平台
+Panel,别人卖，电话
+
+** Github怎么使用，Progit
+** REQUEST对象
+* Tue:
+** python,MySQL http://www.cnblogs.com/rollenholt/archive/2012/05/29/2524327.html
+models里的东西一般都是变的，可以把不变的，放到settings里面去。
+** Django-book，python与数据库的交互；数据库API
+API
+** Django-book 数据库
+1.from django.shortcuts import render_to_response
+import MySQLdb
+
+def book_list(request):
+    db = MySQLdb.connect(user='me', db='mydb', passwd='secret', host='localhost')
+    cursor = db.cursor()
+    cursor.execute('SELECT name FROM books ORDER BY name')
+    names = [row[0] for row in cursor.fetchall()]
+    db.close()
+    return render_to_response('book_list.html', {'names': names})
+
+
+
+    我们将数据库连接参数硬行编码于代码之中。理想情况下，这些参数应当保存在 Django 配置中。
+
+    我们不得不重复同样的代码：创建数据库连接、创建数据库游标、执行某个语句、然后关闭数据库。理想情况下，我们所需要应该只是指定所需的结果
+2.http://djangobook.py3k.cn/chapter05/
+3.我们前面已经提到，Django为自动加了一个 id 主键，你一样可以修改它
+4.python manage.py validate                            # 验证模型的有效性
+  python manage.py sqlall modelname                    # 生成CREATE TABLE语句
+  python manage.py syncdb                              # 数据库刷新，syncdb 仅仅创建数据库中不存在的表，而不会同步模型的修改或者删除到数据库。如果你添加或者修改了模型的一个字段，或者删除一个模型
+
+** 数据库处理（important）
+*** 插入，更新数据：
+>>> p = Publisher(name='Apress',
+...         address='2855 Telegraph Ave.',
+...         city='Berkeley',
+...         state_province='CA',
+...         country='U.S.A.',
+...         website='http://www.apress.com/')
+
+这个对象实例并 没有 对数据库做修改。
+
+要保存这个记录到数据库里（也就是执行 INSERT SQL 语句），调用对象的 save() 方法：
+
+>>> p.save()
+
+*** 选择对象：
+>>> Publisher.objects.all()
+[<Publisher: Addison-Wesley>, <Publisher: O'Reilly>, <Publisher: Apress Publishing>]
+这相当于这个SQL语句：
+SELECT
+    id, name, address, city, state_province, country, website
+FROM book_publisher;
+注意到Django在选择所有数据时并没有使用 SELECT* ，而是显式列出了所有字段。 就是这样设计的： SELECT* 会更慢，而且最重要的是列出所有字段遵循了Python 界的一个信条：明确比不明确好。
+**** objects:管理器（manger）
+
+*** 数据过滤：
+你可以传递多个参数到 filter() 来缩小选取范围：
+>>> Publisher.objects.filter(country="U.S.A.", state_province="CA")
+[<Publisher: Apress Publishing>]
+
+SQL缺省的 = 操作符是精确匹配的，其他的查找类型如下：
+
+>>> Publisher.objects.filter(name__contains="press")
+[<Publisher: Apress Publishing>]
+ name 和 contains 之间有双下划线。象Python自己一样，Django也使用 双下划线来做一些小魔法，这个 __contains 部分会被Django转换成 LIKE SQL语句：
+这个相当于SQL语句：
+SELECT
+    id, name, address, city, state_province, country, website
+FROM book_publisher
+WHERE name LIKE '%press%';
+
+
+其他的一些查找类型有： icontains (大小写无关的 LIKE ), startswith 和 endswith , 还有 range (SQL BETWEEN 查询）
+
+*** 获取单个对象get（）
+>>> Publisher.objects.get(name="Apress Publishing")
+<Publisher: Apress Publishing>
+
+
+*** 数据排序 order_by()
+多个字段也没问题：
+
+>>> Publisher.objects.order_by("state_provice", "address")
+ [<Publisher: Apress Publishing>, <Publisher: O'Reilly>, <Publisher: Addison-Wesley>]
+
+我们还可以指定逆向排序，在前面加一个减号 - 前缀：
+
+>>> Publisher.objects.order_by("-name")
+[<Publisher: O'Reilly>, <Publisher: Apress Publishing>, <Publisher: Ad
+
+每次都要用 order_by() 显得有点啰嗦。 大多数时间你通常只会对某些 字段进行排序。在这种情况下，Django让你可以指定模型的缺省排序方式：
+
+class Publisher(models.Model):
+    name = models.CharField(maxlength=30)
+    address = models.CharField(maxlength=50)
+    city = models.CharField(maxlength=60)
+    state_province = models.CharField(maxlength=30)
+    country = models.CharField(maxlength=50)
+    website = models.URLField()
+
+    def __str__(self):
+        return self.name
+
+    **class Meta:**
+        **ordering = ["name"]**
+
+这个 ordering = ["name"] 告诉Django如果没有显示提供 order_by() , 就缺省按名称排序。
+
+Meta是什么:Django使用内部类Meta存放用于附加描述该模型的元数据。 这个类完全可以不实现，不过他能做很多非常有用的事情。查看附录B，在Meta项下面，获得更多选项信息，
+
+*** 限制返回的数据：
+另一个常用的需求就是取出固定数目的记录。想象一下你有成千上万的出版商在你的数据库里， 但是你只想显示第一个。你可以这样做：
+
+>>> Publisher.objects.all()[0]
+<Publisher: Addison-Wesley>
+这相当于：
+SELECT
+    id, name, address, city, state_province, country, website
+FROM book_publisher
+ORDER BY name
+LIMIT 1;
+
+*** 删除对象：
+要删除对象，只需简单的调用对象的 delete() 方法：
+
+>>> p = Publisher.objects.get(name="Addison-Wesley")
+>>> p.delete()
+>>> Publisher.objects.all()
+[<Publisher: Apress Publishing>, <Publisher: O'Reilly>]
+
+你还可以批量删除对象，通过对查询的结果调用 delete() 方法：
+
+>>> publishers = Publisher.objects.all()
+>>> publishers.delete()
+>>> Publisher.objects.all()
+[]
+*** 添加字段：
+*** 删除字段
+*** 删除Many-to-Many字段
+*** 删除模型
+
+** 数据库附录B
+*** 字段：
+数据库列类型（如 INTEGER 、 VARCHAR ）
+*** AutoField
+*** DataTimeField:
+   在settings文件中你需要定义 MEDIA_ROOT ，它就是你要保存上传文件的目录的全路径。（出于性能考虑，这些文件不会保存到数据库中。）还要定义 MEDIA_URL ，刚才那个目录的对外URL。你要确保网络服务器使用的用户对这个目录是可写入的。
+   在模型中添加 FileField 或者 ImageField ，务必要定义 upload_to 选项，这样Django才知道把上传的文件写到 MEDIA_ROOT 的哪个子目录中。
+   例如,你的 MEDIA_ROOT 设置为 '/home/media' ， upload_to 设置为 'photos/%Y/%m/%d' 。其中 '%Y/%m/%d' 部分是日期格式化串： '%Y' 为4位的年份， '%m' 是两位月份， '%d' 是两位的日期。如果你在2007年1月15日上传文件，这个文件就会被保存在 /home/media/photos/2007/01/15 目录下。
+如果你想得到上传文件在磁盘上的文件名，或者指向该文件的URL，或者文件大小，你可以分别使用这些方法： get_FIELD_filename() 、 get_FIELD_url() 和 get_FIELD_size() 。附录C中有这些方法的详细解释。
+
+    FilePathField(path="/home/images", match="foo.*", recursive=True)
+    会匹配 /home/images/foo.gif ，但是不会匹配 /home/images/foo/bar.gif ，因为 match 只作用于基文件名（ foo.gif 和 bar.gif ）。
+*** FloatField
+例如，要保存最大值为999并且有两位小数的数字，应该这样写：
+     models.FloatField(..., max_digits=5, decimal_places=2)
+要保存最大值为10亿并且带10个小数位的数字，要这样写：
+     models.FloatField(..., max_digits=19, decimal_places=10)
+像 FileField 一样，只不过要验证上传的对象是一个有效的图片。它有两个额外的可选参数： height_field 和 width_field ，如果设置了的话，每当模型实例被保存的时候，这两个值就会被设置成图片的高度和宽度。
+*** IntegerField:
+如果你需要表示一个其他国家的电话号码，检查 django.contrib.localflavor 包，看看是否包括对应你的国家的字段定义
+*** PositiveIntegerField
+*** USStateField
+*** XMLField
+它就是一个 TextField ，只不过要检查值是匹配指定schema的合法XML。它有一个必需参数： schema_path ，它是验证字段合法性所需的RELAX NG（ http://www.relaxng.org/ ）schema的物理路径。
+*** blank
+*** choices
+用列表选择框限定选择范围
+选项列表既可以作为模型类的一部分来定义：
+
+class Foo(models.Model):
+    GENDER_CHOICES = (
+        ('M', 'Male'),
+        ('F', 'Female'),
+    )
+    gender = models.CharField(maxlength=1, choices=GENDER_CHOICES)
+
+也可以定义到模型类的外面：
+
+GENDER_CHOICES = (
+    ('M', 'Male'),
+    ('F', 'Female'),
+)
+class Foo(models.Model):
+    gender = models.CharField(maxlength=1, choices=GENDER_CHOICES)
+*** primary_key
+如果你没有对模型中的任何字段指定 primary_key=True 的话，Django会自动添加这个字段：
+id = models.AutoField('ID', primary_key=True)
+
+默认地，对于 ForeignKey 或者拥有 choices 设置的字段，Django管理界面会使用列表选择框（<select>）。如果 radio_admin 设置为 True 的话，Django就会使用单选按钮界面。
+
+** 附录B（very important）
+models----->creating objects(do .save() get primary key .id)(数据库的ID有什么用)
+------>saving changes to objects(distinct 'insert' and 'update' by id)
+------>retrieving objects
+*** id？不同用户有不同的id？不同id对应不同的表格么？
+b4 = Blog(id=3, name='Not Cheddar', tagline='Anything but cheese
+
+*** Models
+**** Quick example:
+from django.db import models
+
+class Person(models.Model):
+    first_name = models.CharField(max_length=30)
+    last_name = models.CharField(max_length=30)
+
+first_name and last_name are fields of the model. Each field is specified as a class attribute, and each attribute maps to a database column.
+**** Using models
+INSTALLED_APPS = (
+    #...
+    'myapp',
+    #...
+)
+
+When you add new apps to INSTALLED_APPS, be sure to run manage.py syncdb.
+**** Fields
+Fields are specified by class attributes. Be careful not to choose field names that conflict with the models API like clean, save, or delete.
+**** verbose field names
+ If the verbose name isn’t given, Django will automatically create it using the field’s attribute name, converting underscores to spaces.
+
+first_name = models.CharField("person's first name", max_length=30)
+In this example, the verbose name is "first name":
+first_name = models.CharField(max_length=30)
+
+ForeignKey, ManyToManyField and OneToOneField require the first argument to be a model class, so use the verbose_name keyword argument:
+
+poll = models.ForeignKey(Poll, verbose_name="the related poll")
+sites = models.ManyToManyField(Site, verbose_name="list of sites")
+place = models.OneToOneField(Place, verbose_name="related place")
+
+The convention is not to capitalize the first letter of the verbose_name. Django will automatically capitalize the first letter where it needs to.
+
+**** Relationships:
+Clearly, the power of relational databases lies in relating tables to each other. Django offers ways to define the three most common types of database relationships: many-to-one, many-to-many and one-to-one.
+**** Field name restrictions
+A field name cannot be a Python reserved word, because that would result in a Python syntax error. For example:
+class Example(models.Model):
+  pass = models.IntegerField() # 'pass' is a reserved word!
+
+A field name cannot contain more than one underscore in a row, due to the way Django’s query lookup syntax works. For example:
+class Example(models.Model):
+  foo__bar = models.IntegerField() # 'foo__bar' has two underscores!
+
+**** Meta options
+**** Model methods
+__unicode__()
+A Python “magic method” that returns a unicode “representation” of any object. This is what Python and Django will use whenever a model instance needs to be coerced and displayed as a plain string. Most notably, this happens when you display an object in an interactive console or in the admin.
+You’ll always want to define this method; the default isn’t very helpful at all.
+**** Model inheritance
+
+* Wed:
+** 基于Django框架的敏捷Web开发
+*** Django 是应用于 Web 开发的高级动态语言框架。
+Django 拥有完善的模板机制、对象关系映射机制以及用于动态创建后台管理界面的功能，利用 Django，可以快速设计和开发具有 MVC 层次的 Web 应用。为了打消开发者选用 Django 框架时的疑虑，首先分析一下 Django 引人注目的特性。在实体映射方面，Django 的对象相关映射机制帮助开发者在 Python 类中灵活定义数据模型，并且Django 具有功能丰富的动态数据库访问 API，可以大幅度简化书写 SQL 语句的繁杂工作。同时 Django 支持包括 Postgresql，MySql，Sqlite，Oracle 在内的多种后台数据库。Django 的 URL 分发设计的十分简洁美观，不会在链接中产生一大串杂乱且难以理解的字符。使用 Django 可扩展的内置模板，可以将模型层、控制层与页面模板完全独立开来进行编码。Django 还具有自己的 Cache 系统，如果需要，也可以根据开发者的要求嵌套其他的 Cache 框架。
+  * __init__.py
+      文件__init__.py可以向Python编译器表明当前文件夹下的内容是Python工程模块。
+    * 2.manage.py
+      manage.py是Python脚本文件，与Django的命令行工具django-admin.py配合，可以对建立的工程进行管理配置。
+    * settings.py
+      这是Django工程的配置文件，与工程相关的工程模块和数据库全局配置信息都在settings.py中设置。
+    * urls.py
+      文件urls.py负责配置URL的地址映射以及管理URL的地址格式。
+*** verbose_name,id,uid
+
+*** admin模块
+添加admin模块后还不能立即使用Django的admin后台管理界面，需要打开News工程根目录下的urls.py文件，将“# Uncomment this for admin:”后面的#注释去掉，使得Django针对管理界面的URL转向“(r'^admin/', include('django.contrib.admin.urls')),”可用，这样访问admin模块时Django就可以顺利解析访问地址并转向后台管理界面。
+当配置文件的改动完成之后，就可以在News工程的命令提示符下执行manage.py syncdb指令。Django会根据模型的定义自动完成ORM的数据库映射工作，屏蔽了底层数据库细节和SQL查询的编写。
+展示Django魅力的时刻已经来临，Django框架将让开发者开始神奇的体验。随着命令执行后的滚动提示，Django已经根据我们刚才在models 里定义的映射文件，自动在数据库里创建好对应的表和字段。命令执行的同时会提示用户创建“superuser"账户，来登陆Django自动创建好的后台管理界面对模型进行管理
+*** 用admin管理数据库，登陆界面用的就是admin
+*** 程序编写注意
+数据库：uid，id，记录的添加删除
+web界面显示：实时显示更新结果，对结果可以尽心删除
+数据输入：多文件类型
+数据输出：只对一个文件进行处理
+
+*** HTML,<table>标签
+定义和用法，实例，HTML与XHTML差异，可选的属性，标准属性，事件属性
+*** HTML,<div>标签
+<div> 是一个块级元素。这意味着它的内容自动地开始一个新行。
+实际上，换行是 <div> 固有的唯一格式表现。可以通过 <div> 的 class 或 id 应用额外的样式。
+不必为每一个 <div> 都加上类或 id，虽然这样做也有一定的好处。
+可以对同一个 <div> 元素应用 class 或 id 属性，但是更常见的情况是只应用其中一种。
+这两者的主要差异是，class 用于元素组（类似的元素，或者可以理解为某一类元素），而 id 用于标识单独的唯一的元素。
+
+*** HTML,<u>标签
+当文档是超链接时，才用
+*** HTML事件属性
+*** 操作步骤：
+1.写html：写框和表单
+2.写models：将文件名和上传信息存储到数据库
+3.写views：实现对单个文件的下载
+4.可以在表单里实现对某个文件的删除
+5.待实现问题：
+其他格式文件的读取，不同用户处理不同文件夹，如何通过点击下载，就可以把文件名给链接过去。
+*** HTTP的Request和Response对象 http://djangobook.py3k.cn/appendixH/
+**** HttpRequest对象的属性：
+method：表示提交请求使用的HTTP方法。 它总是大写的。例如：
+if request.method == 'GET':
+    do_something()
+elif request.method == 'POST':
+    do_something_else()
+GET：一个类字典对象，包含所有的HTTP的GET参数的信息。 见 QueryDict 文档。
+POST：一个类字典对象，包含所有的HTTP的POST参数的信息。 见 QueryDict 文档。
+通过POST提交的请求有可能包含一个空的 POST 字典， 也就是说， 一个通过POST方法提交的表单可能不包含数据。 因此，不应该使用 if request.POST 来判断POST方法的使用， 而是使用 if request.method == "POST" （见表中的 method 条目）。
+注意： POST 并 不 包含文件上传信息。 见 FILES 。
+FILES：一个类字典对象，包含所有上传的文件。 FILES 的键来自 <input type="file" name="" /> 中的 name 。 FILES 的值是一个标准的Python字典， 包含以下三个键：
+    filename ：字符串，表示上传文件的文件名。
+    content-type ：上传文件的内容类型。
+    content ：上传文件的原始内容。
+注意 FILES 只在请求的方法是 POST ，并且提交的 <form> 包含 enctype="multipart/form-data" 时 才包含数据。否则， FILES 只是一个空的类字典对象。
+
+<form action="/foo/bar/" method="post">
+<input type="text" name="your_name" />
+<select multiple="multiple" name="bands">
+    <option value="beatles">The Beatles</option>
+    <option value="who">The Who</option>
+    <option value="zombies">The Zombies</option>
+</select>
+<input type="submit" />
+</form>
+
+如果用户在 your_name 中输入 "John Smith" ，并且在多选框中同时选择了The Beatles和The Zombies，那么以下就是Django的request对象所拥有的：
+
+>>> request.GET
+{}
+>>> request.POST
+{'your_name': ['John Smith'], 'bands': ['beatles', 'zombies']}
+>>> request.POST['your_name']
+'John Smith'
+>>> request.POST['bands']
+'zombies'
+>>> request.POST.getlist('bands')
+['beatles', 'zombies']
+>>> request.POST.get('your_name', 'Adrian')
+'John Smith'
+>>> request.POST.get('nonexistent_field', 'Nowhere Man')
+'Nowhere Man'
+
+**** HttpResponse：
+   与Django自动创建的 HttpRequest 对象相比， HttpResponse 对象则是由你创建的。 你创建的每个视图都需要实例化，处理和返回一个 HttpResponse 对象。
+HttpResponse 类存在于 django.http.HttpResponse 。
+   HttpResponse的子类：
+``HttpResponseRedirect``         |构造函数的参数有一个：                     |
+    |                                 |重定向的路径。 它可以是一个完整的URL       |
+    |                                 |（例如， ``'http://search.yahoo.com/'`` ） |
+    |                                 |或者不包括域名的绝对路径（如               |
+    |                                 |``'/search/'`` ）。 注意它返回             |
+    |                                 |HTTP 状态码 302。 
+
+*** HTTP协议详解：http://kb.cnblogs.com/page/130970/
+URL(Uniform Resource Locator) 地址用于描述一个网络上的资源，  基本格式如下
+
+    schema://host[:port#]/path/.../[;url-params][?query-string][#anchor]
+
+　　scheme               指定低层使用的协议(例如：http, https, ftp)
+   host                   HTTP服务器的IP地址或者域名
+　　port#                 HTTP服务器的默认端口是80，这种情况下端口号可以省略。如果使用了别的端口，必须指明，例如 http://www.cnblogs.com:8080/
+ 　 path                   访问资源的路径
+　　url-params
+　　query-string       发送给http服务器的数据
+　　anchor-             锚
+　　URL 的一个例子
+
+    http://www.mywebsite.com/sj/test;id=8079?name=sviergn&x=true#stuff
+
+    Schema: http
+    host: www.mywebsite.com
+    path: /sj/test
+    URL params: id=8079
+    Query String: name=sviergn&x=true
+    Anchor: stuff
+
+**** HTTP协议是无状态的
+http协议是无状态的，同一个客户端的这次请求和上次请求是没有对应关系，对http服务器来说，它并不知道这两个请求来自同一个客户端。 为了解决这个问题， Web程序引入了Cookie机制来维护状态.
+**** HTTP消息的结构
+先看Request 消息的结构，   Request 消息分为3部分，第一部分叫请求行， 第二部分叫http header, 第三部分是body. header和body之间有个空行， 结构如下图
+**** GET和POST方法的区别
+**** 状态码
+Response 消息中的第一行叫做状态行，由HTTP协议版本号， 状态码， 状态消息 三部分组成。
+
+　　状态码用来告诉HTTP客户端，HTTP服务器是否产生了预期的Response.
+
+　　HTTP/1.1中定义了5类状态码， 状态码由三位数字组成，第一个数字定义了响应的类别
+
+　　1XX  提示信息 - 表示请求已被成功接收，继续处理
+
+　　2XX  成功 - 表示请求已被成功接收，理解，接受
+
+　　3XX  重定向 - 要完成请求必须进行更进一步的处理
+
+　　4XX  客户端错误 -  请求有语法错误或请求无法实现
+
+　　5XX  服务器端错误 -   服务器未能实现合法的请求
+* Thu:
+** 模版标签和过滤器{% %}
+** Django写views时，方法默认为get，但form里定义是post的话，可以if一下。针对views里有get和post，需分情况讨论。
+
+** 待完善部分：
+   1.相同名字上传会导致覆盖
+   2.不用用户ID，会显示不同上传结果。本质：将上传文件存在不同位置。
+   3.上传文件名，只能是英文的，中文有问题。
+** python模块：tempfile，zipfile
+temfile：Return a file-like object that can be used as a temporary storage area.
+
+zipfile：The ZIP file format is a common archive and compression standard. 
+
+class zipfile.ZipFile
+
+    The class for reading and writing ZIP files. See section ZipFile Objects for constructor details.
+
+** web技术和应用：
+MIME 协议的一个扩展Content-disposition。
+
+    我们在开发web系统时有时会有以下需求：
+
+    希望某类或者某已知MIME 类型的文件（比如：*.gif;*.txt;*.htm）能够在访问时弹出“文件下载”对话框
+    希望以原始文件名（上传时的文件名,例如：山东省政府1024号文件.doc）提供下载，但服务器上保存的地址却是其他文件名（如：12519810948091234_asdf.doc)
+    希望某文件直接在浏览器上显示而不是弹出文件下载对话框
+    ……………………
+
+
+
+Content-Disposition的作用
+
+       今天查看Struts2的文件上传部分 发现有个例子开头打印的信息中有Content-Disposition，一时好奇，所以了解了一下。顺便学习一下文件上传所需要的注意事项。
+
+      Content-disposition 是 MIME 协议的扩展，MIME 协议指示 MIME 用户代理如何显示附加的文件。当 Internet Explorer 接收到头时，它会激活文件下载对话框，它的文件名框自动填充了头中指定的文件名。（请注意，这是设计导致的；无法使用此功能将文档保存到用户的计算机上，而不向用户询问保存位置。）   
+
+        服务端向客户端游览器发送文件时，如果是浏览器支持的文件类型，一般会默认使用浏览器打开，比如txt、jpg等，会直接在浏览器中显示，如果需要提示用户保存，就要利用Content-Disposition进行一下处理，关键在于一定要加上attachment：
+
+Response.AppendHeader("Content-Disposition","attachment;filename=FileName.txt");
+
+备注：这样浏览器会提示保存还是打开，即使选择打开，也会使用相关联的程序比如记事本打开，而不是IE直接打开了。
+
+Content-Disposition就是当用户想把请求所得的内容存为一个文件的时候提供一个默认的文件名。具体的定义如下：
+
+content-disposition = “Content-Disposition” “:”
+
+disposition-type *( “;” disposition-parm )
+
+disposition-type = “attachment” | disp-extension-token
+
+disposition-parm = filename-parm | disp-extension-parm
+
+filename-parm = “filename” “=” quoted-string
+
+disp-extension-token = token
+
+disp-extension-parm = token “=” ( token | quoted-string )
+
+那么由上可知具体的例子：
+
+Content-Disposition: attachment; filename=“filename.xls”
+
+       当然filename参数可以包含路径信息，但User-Agnet会忽略掉这些信息，只会把路径信息的最后一部分做为文件名。当你在响应类型为application/octet- stream情况下使用了这个头信息的话，那就意味着你不想直接显示内容，而是弹出一个”文件下载”的对话框，接下来就是由你来决定“打开”还是“保存” 了。
+
+注意事项：
+
+1.当代码里面使用Content-Disposition来确保浏览器弹出下载对话框的时候。 response.addHeader("Content-Disposition","attachment");一定要确保没有做过关于禁止浏览器缓存的操作。如下：
+
+response.setHeader("Pragma", "No-cache"); 
+response.setHeader("Cache-Control", "No-cache"); 
+response.setDateHeader("Expires", 0);
+
+不然会发现下载功能在opera和firefox里面好好的没问题，在IE下面就是不行，就是找不到文件。
+
+
+
+
+
+* Fri
+  1.对文件操作，尽量用id，不用文件名。id是唯一的，文件名不是。 p.delete()
+  2.文件上传的时候，文件名只能是英文，中文报错。
+  3.文件删除时，总会跳转到新页面
+  4.对大文件上传问题，有进度现实。进度条。
+  5.models里的upload_to
